@@ -30,7 +30,8 @@ type Parser struct {
 
 	currentTag int
 
-	tagOpened bool
+	currentOpenedTag string
+	tagOpened        bool
 
 	inTitle bool
 }
@@ -46,8 +47,9 @@ func (p *Parser) GetTitleAndDescription() (title, description string) {
 }
 
 const (
-	startTag = iota
-	endTag
+	tagOpen = iota
+	tagClose
+	tagSelfClosed
 )
 
 const (
@@ -56,10 +58,17 @@ const (
 	closeTagC = byte('/')
 )
 
+const (
+	tagStarted = '<'
+	tagEnded   = '>'
+	closeTag   = '/'
+)
+
 func (p *Parser) parse2() {
 	var err error
 	var s byte
 	defer log.Println("title: ", p.title)
+	defer log.Println("description: ", p.description)
 
 	for {
 		s, err = p.r.ReadByte()
@@ -70,9 +79,9 @@ func (p *Parser) parse2() {
 
 		//log.Println("in title", p.inTitle)
 
-		if p.inTitle {
-			p.writeTitle(s)
-		}
+		//if p.inTitle {
+		//	p.writeTitle(s)
+		//}
 
 		// ищем открывающий тег если тег не открыт
 		if !p.tagOpened {
@@ -86,6 +95,18 @@ func (p *Parser) parse2() {
 				p.title = p.buf.String()
 			}
 			log.Printf("{%s}", p.buf.String())
+			tag := p.buf.String()
+
+			if !strings.HasPrefix(tag, "/") {
+				p.currentOpenedTag = tag
+				log.Println("current opened tag", p.currentOpenedTag)
+			}
+
+			if strings.Contains(tag, "/head") {
+				log.Println("------- end head -----------")
+				return
+			}
+
 			p.buf.Reset()
 			continue
 		}
@@ -101,21 +122,6 @@ func (p *Parser) parse2() {
 func (p *Parser) writeTitle(b byte) {
 	p.buf.WriteByte(b)
 }
-
-func (p *Parser) findTitle(b byte) {
-	if p.title == "" {
-		// find title and write to title
-	}
-}
-
-func (p *Parser) parseChar(b byte) {
-	switch p.currentTag {
-	case startTag:
-		p.buf.WriteByte(b)
-	}
-}
-
-const startHead = "<head"
 
 func (p *Parser) findOpenTag(b byte) {
 	if b == startTagC {
